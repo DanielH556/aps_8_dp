@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="index.css">
+    <title>Indicador de Alagamentos</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.2/dist/leaflet.css"
+        integrity="sha256-sA+zWATbFveLLNqWO2gtiw3HL/lh1giY/Inf1BJ0z14=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.2/dist/leaflet.js"
+        integrity="sha256-o9N1jGDZrf5tS+Ft4gbIK7mYMipq9lqpVJ91xHSyKhg=" crossorigin=""></script>
+</head>
+
+<body>
+
+    <header>
+        <div class="header">
+            <h1>Indicador de Alagamentos</h1>
+        </div>
+    </header>
+
+    <main>
+
+        <div class="content-wrapper">
+            <div class="login">
+                <h1>Insira um apelido para continuar</h1>
+                <form action="" id="login">
+                    <input type="text" name="user" id="user" placeholder="Digite seu apelido">
+                    <input type="submit" value="Entrar">
+                </form>
+            </div>
+
+            <div class="sala-chat">
+                <div class="left-side">
+                    <div class="historico" id="historico"></div>
+                    <div class="formulario">
+                        <form action="" id="chat">
+                            <input type="text" name="message" id="message" placeholder="Digite sua mensagem...">
+                            <input type="submit" value="Enviar">
+                        </form>
+                    </div>
+                </div>
+                <div>
+                  <div class="coordenadas">
+                     <form id="coordenadas">
+                        <label for="">Latitude</label>
+                        <input type="text" name="latitude" placeholder="Insira a latitude" id="latitude">
+                        <label for="">Longitude</label>
+                        <input type="text" name="longitude" placeholder="Insira a longitude" id="longitude">
+                        <button id="localizarCoordenada" type="button">Localizar</button>
+                     </form>
+                   </div>
+                   <div class="mapa" id="map" style="height: 700px; width: 600px"></div>
+                </div>
+                <!-- <div id="map" style="height: 400px; width: 400px;"></div> -->
+            </div>
+
+        </div>
+
+    </main>
+    <footer>
+        <div class="footer">
+            Copyright
+        </div>
+    </footer>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBlF5B0Z6cVl3GePRxMUPvFu5TtrzUjGl8&callback=initMap"
+        async defer></script>
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+        var socket = io.connect();
+
+        $("#login").submit(function (e) {
+            e.preventDefault();
+
+            socket.emit("entrar", $(this).find("#user").val(), function (valido) {
+                if (valido) {
+                    $(".login").hide();
+                    $(".left-side").show();
+                    $(".mapa").show();
+                } else {
+                    $(".login").val("");
+                    alert("Nome já utilizado nesta sala");
+                }
+            });
+        });
+
+        $("form#chat").submit(function (e) {
+            e.preventDefault();
+            socket.emit("enviar mensagem", $(this).find("#message").val(), function () {
+                $("form#chat #message").val("");
+            });
+        });
+
+        $("form#chat").submit(function (e) {
+            // Conteúdo da função
+        });
+        socket.on("atualizar mensagens", function (mensagem) {
+            var mensagem_formatada = $("<p />").text(mensagem);
+            $(".historico").append(mensagem_formatada);
+        });
+
+        socket.on("atualizar usuarios", function (usuarios) {
+            $("#lista_usuarios").empty();
+            $("#lista_usuarios").append("<option value=''>Todos</option>");
+            $.each(usuarios, function (indice) {
+                var opcao_usuario = $("<option />").text(usuarios[indice]);
+                $("#lista_usuarios").append(opcao_usuario);
+            });
+        });
+
+        io.on("connection", function (socket) {
+            socket.on("disconnect", function () {
+                delete usuarios[socket.apelido];
+                io.sockets.emit("atualizar usuarios", Object.keys(usuarios));
+                io.sockets.emit("atualizar mensagens", "[ " + pegarDataAtual() + " ] " + socket.apelido + " saiu da sala");
+            });
+        });
+
+        $("form#chat").submit(function (e) {
+            e.preventDefault();
+
+            var mensagem = $(this).find("#texto_mensagem").val();
+            var usuario = $("#lista_usuarios").val();
+
+            socket.emit("enviar mensagem", { msg: mensagem, usu: usuario }, function () {
+                $("form#chat #texto_mensagem").val("");
+            });
+        });
+    </script>
+    <script>
+      console.log('Leaflet Version: ' + L.version)
+        var map = L.map('map');
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        var popup = L.popup();
+
+        function onMapLoad() {
+         socket.emit("mostrar marcadores", function() {
+            console.log("Requisição de SELECT enviada!");
+         });
+
+         socket.on("mostrar marcadores retorno", function(marcadores) {
+            // TODO: Colocar os marcadores que estão no banco de dados no mapa
+            console.log(marcadores)
+            Object.keys(marcadores).forEach(function(markers) {
+               `let marker${markers.id} = L.marker(LatLng(${markers.latitude},${markers.longitude})).addTo(map)`;
+               // FIXME: Descobrir por que o ${markers.id} da 'undefined'
+               console.log(`Marker ${markers.id} created!`)
+            });
+            console.log('forEach finished!')
+         });
+        };
+
+        // Marker Instance
+        var selectedMarker;
+
+         function removeMarker() {
+            map.removeLayer(selectedMarker);
+         };
+
+         function saveMarker(latitude, longitude) {
+            socket.emit("salvar marcador", [latitude, longitude], function() {
+               console.log("Saved marker: " + latitude + " :|: " + longitude)
+            });
+         };
+
+        const YesBtn = '<button type=button id=saveCoords>Sim</button>'
+        const NoBtn = '<button type=button id=removeMarker>Não</button>'
+
+        function onMapClick(e) {
+           if (selectedMarker) {
+              map.removeLayer(selectedMarker)
+            }
+
+            selectedMarker = L.marker(e.latlng).addTo(map)
+            selectedMarker.bindPopup("Deseja salvar esta localização?\n\n" + YesBtn + ' ' + NoBtn).openPopup(e.latlng);
+
+            console.log("e.latlng: " + e.latlng)
+
+            document.getElementById("saveCoords").addEventListener('click', function() {
+               saveMarker(e.latlng.lat, e.latlng.lng);
+            });
+
+            document.getElementById("removeMarker").addEventListener('click', function() {
+               removeMarker();
+            });
+         };
+
+        // Achar coordenada no mapa
+        $("#localizarCoordenada").click(function (e) {
+            var latitudePog = document.getElementById("latitude");
+            var latitudeAtual = latitudePog.value;
+            var longitudePog = document.getElementById("longitude");
+            var longitudeAtual = longitudePog.value;
+            console.log(latitudeAtual)
+            console.log("Latitude: " + latitudeAtual + "////// Longitude: " + longitudeAtual)
+            map.setView([latitudeAtual,longitudeAtual],13)
+        })
+
+        map.on('click', onMapClick);
+        map.on('load', onMapLoad);
+
+        setInterval(() => {
+           map.invalidateSize()
+        }, 100);
+
+        map.locate({ setView: true, maxZoom: 16 })
+
+    </script>
+</body>
+
+</html>
+
+<script src="index.js"></script>
