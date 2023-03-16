@@ -142,27 +142,10 @@
 
         var popup = L.popup();
 
-        function onMapLoad() {
-         socket.emit("mostrar marcadores", function() {
-            console.log("Requisição de SELECT enviada!");
-         });
-
-         socket.on("mostrar marcadores retorno", function(marcadores) {
-            // TODO: Colocar os marcadores que estão no banco de dados no mapa
-            console.log(marcadores)
-            Object.keys(marcadores).forEach(function(markers) {
-               `let marker${markers.id} = L.marker(LatLng(${markers.latitude},${markers.longitude})).addTo(map)`;
-               // FIXME: Descobrir por que o ${markers.id} da 'undefined'
-               console.log(`Marker ${markers.id} created!`)
-            });
-            console.log('forEach finished!')
-         });
-        };
-
         // Marker Instance
         var selectedMarker;
 
-         function removeMarker() {
+         function cancelMarker() {
             map.removeLayer(selectedMarker);
          };
 
@@ -172,8 +155,37 @@
             });
          };
 
-        const YesBtn = '<button type=button id=saveCoords>Sim</button>'
-        const NoBtn = '<button type=button id=removeMarker>Não</button>'
+         function deleteMarker(latitude, longitude) {
+            // socket.emit("apagar marcador", [latitude, longitude], function() {
+            //    console.log("Apagando marcador: " + latitude + " :|: " + longitude)
+            // })
+            console.log("Delete Marker Clicked!")
+         }
+
+        const SaveBtn = '<button type=button id=saveMarker>Salvar</button>';
+        const CancelBtn = '<button type=button id=cancelMarker onclick=cancelMarker()>Cancelar</button>';
+        const EditBtn = '<button type=button id=editMarker>Editar</button>';
+        const DeleteBtn = '<button type=button id=deleteMarker onclick="deleteMarker(14,14)">Apagar</button>'
+
+        const popupBtns = `<div style="text-align: center"><br>${SaveBtn}<br>${CancelBtn}<br>${EditBtn}<br>${DeleteBtn}`
+
+        function onMapLoad() {
+         socket.emit("mostrar marcadores", function() {
+            console.log("Requisição de SELECT enviada!");
+         });
+
+
+         socket.on("mostrar marcadores retorno", function(marcadores) {
+            console.log("Log Marcadores: ")
+            console.log(marcadores)
+            Object.keys(marcadores).forEach(marker => {
+               console.log(marcadores[marker].latitude);
+               `let marker${marcadores[marker].id} = ${L.marker([+marcadores[marker].latitude,+marcadores[marker].longitude]).addTo(map).bindPopup("O que deseja fazer?" + popupBtns).openPopup([+marcadores[marker].latitude,+marcadores[marker].longitude])}`;
+               console.log(`Marker ${marcadores[marker].id} created!`)
+            });
+            console.log('forEach finished!')
+         });
+        };
 
         function onMapClick(e) {
            if (selectedMarker) {
@@ -181,17 +193,23 @@
             }
 
             selectedMarker = L.marker(e.latlng).addTo(map)
-            selectedMarker.bindPopup("Deseja salvar esta localização?\n\n" + YesBtn + ' ' + NoBtn).openPopup(e.latlng);
+            selectedMarker.bindPopup("O que deseja fazer?" + popupBtns).openPopup(e.latlng);
 
             console.log("e.latlng: " + e.latlng)
 
-            document.getElementById("saveCoords").addEventListener('click', function() {
+            document.getElementById("saveMarker").addEventListener('click', function() {
                saveMarker(e.latlng.lat, e.latlng.lng);
             });
 
-            document.getElementById("removeMarker").addEventListener('click', function() {
-               removeMarker();
-            });
+            // document.getElementById("editMarker").addEventListener('click', function() {
+            //    // cancelMarker();
+            //    console.log("Editar Marcador")
+            // });
+
+            // document.getElementById("deleteMarker").addEventListener('click', function() {
+            //    console.log("Delete Marker Clicked!")
+            //    // deleteMarker(e.latlng.lat, e.latlng.lng);
+            // });
          };
 
         // Achar coordenada no mapa

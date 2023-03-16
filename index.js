@@ -56,30 +56,44 @@ db.serialize(function() {
    console.log("Banco de dados criado com sucesso!");
 });
 
+function deleteMarker(latlng) {
+   console.log("Delete: " + latlng)
+   db.run("DELETE FROM Marcadores WHERE latitude = " + latlng[0] + " AND longitude = " + latlng[1])
+   console.log('Marcador foi apagado com sucesso!')
+}
+
 function setMarker(latlng) {
+   console.log(latlng)
    db.run("INSERT INTO Marcadores (latitude, longitude) VALUES (" + latlng[0] + ", " + latlng[1] + ")");
    console.log('Marcador foi salvo com sucesso!')
 };
 
+
 let marcadores = {}
 let i = 0
 async function selectMarkers() {
-   // FIXME: Banco repete SELECT cada vez que usuário entra na sala, trazendo um objeto gigante repetindo os marcadores
-   await db.all("SELECT * FROM Marcadores", function(err, rows) {
-      rows.forEach(function(row) {
-         console.log(row.id + ": " + row.latitude + " | " + row.longitude)
-         let marcador = Object.assign(marcadores, { 
-            [i]: {
-               id: row.id,
-               latitude: row.latitude,
-               longitude: row.longitude
-            }
-          });
-         i++;
+   if (Object.keys(marcadores).length == 0) {
+      await db.all("SELECT * FROM Marcadores", function(err, rows) {
+         console.log(rows)
+         rows.forEach(function(row) {
+            console.log(row.id + ": " + row.latitude + " | " + row.longitude)
+            let marcador = Object.assign(marcadores, { 
+               [i]: {
+                  id: row.id,
+                  latitude: row.latitude,
+                  longitude: row.longitude
+               }
+            });
+            i++;
+            console.log("Marcador " + i + ": ")
+            console.log(marcador)
+         });
+         console.log("Marcadores: ")
+         console.log(marcadores)
       });
-   });
-   console.log("Todos os marcadores foram retornados!")
-}
+      console.log("Todos os marcadores foram retornados!")
+   }
+};
 
 var usuarios = [];
 var ultimas_mensagens = []
@@ -125,5 +139,10 @@ io.on("connection", function(socket){
       selectMarkers();
       io.sockets.emit("mostrar marcadores retorno", marcadores);
       console.log("socket emit executed!")
-     })
+     });
+
+     socket.on("apagar marcador", function(latlng, callback) {
+      deleteMarker(latlng);
+      socket.emit("Marcador Apagado com sucesso!")
+     });
 });
